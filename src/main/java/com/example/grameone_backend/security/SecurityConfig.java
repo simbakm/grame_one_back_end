@@ -59,11 +59,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Explicit allowed origins for development
+        // ─── Allowed Origins ───────────────────────────────────────────────────
+        // Add your deployed frontend URLs here.
+        // To add more, append to this list and redeploy the backend.
         configuration.setAllowedOrigins(List.of(
+                // Local Angular dev server
                 "http://localhost:4200",
                 "http://localhost:3000",
-                "http://127.0.0.1:4200"
+                "http://127.0.0.1:4200",
+                // Production — Vercel deployed Angular admin
+                "https://grame-one-front-end.vercel.app",
+                // Render backend self-referencing (for health checks / proxy)
+                "https://grame-one-back-end.onrender.com"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
