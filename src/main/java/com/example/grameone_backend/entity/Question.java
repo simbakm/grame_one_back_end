@@ -34,6 +34,9 @@ public class Question {
     @Column(columnDefinition = "TEXT")
     private String explanation; // General explanation for the question
 
+    @Column(columnDefinition = "TEXT")
+    private String comprehensionText; // Optional reading comprehension passage or story
+
     private String imageUrl; // Cloudflare R2 object path or URL for image
 
     private String diagramUrl; // Cloudflare R2 object path or URL for diagram

@@ -61,6 +61,7 @@ public class QuestionController {
                     existing.setQuestionType(details.getQuestionType());
                     existing.setDifficulty(details.getDifficulty());
                     existing.setExplanation(details.getExplanation());
+                    existing.setComprehensionText(details.getComprehensionText());
                     existing.setImageUrl(details.getImageUrl());
                     existing.setDiagramUrl(details.getDiagramUrl());
                     existing.setStatus(details.getStatus());
@@ -73,6 +74,31 @@ public class QuestionController {
                         }
                     }
                     return ResponseEntity.ok(questionRepository.save(existing));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/upload-media")
+    public ResponseEntity<?> uploadQuestionMedia(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "type", defaultValue = "image") String type,
+            com.example.grameone_backend.service.MediaService mediaService) {
+
+        return questionRepository.findById(id)
+                .map(question -> {
+                    try {
+                        String key = mediaService.uploadMedia(file, "questions");
+                        String publicUrl = mediaService.getPublicUrl(key);
+                        if ("diagram".equalsIgnoreCase(type)) {
+                            question.setDiagramUrl(publicUrl);
+                        } else {
+                            question.setImageUrl(publicUrl);
+                        }
+                        return ResponseEntity.ok(questionRepository.save(question));
+                    } catch (Exception e) {
+                        return ResponseEntity.internalServerError().body("Failed to upload image: " + e.getMessage());
+                    }
                 })
                 .orElse(ResponseEntity.notFound().build());
     }

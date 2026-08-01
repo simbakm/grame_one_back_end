@@ -33,6 +33,7 @@ public class CsvImportService {
         int importedCount = 0;
         int skippedCount = 0;
         List<String> errors = new ArrayList<>();
+        List<Map<String, Object>> questionsNeedingImage = new ArrayList<>();
 
         // In-memory caches to avoid repeated DB lookups within the same import batch
         Map<String, Grade>   gradeCache   = new HashMap<>();
@@ -166,9 +167,26 @@ public class CsvImportService {
                     String difficulty   = getVal(record, "Difficulty");
                     if (difficulty.isEmpty()) difficulty = "MEDIUM";
 
+                    // Optional comprehension passage / story
+                    String comprehensionText = getVal(record, "ComprehensionText");
+                    if (comprehensionText.isEmpty()) comprehensionText = getVal(record, "Story");
+                    if (comprehensionText.isEmpty()) comprehensionText = getVal(record, "Passage");
+
+                    // Optional picture / diagram path flags
+                    String imagePath = getVal(record, "ImagePath");
+                    if (imagePath.isEmpty()) imagePath = getVal(record, "PicPath");
+                    if (imagePath.isEmpty()) imagePath = getVal(record, "Picture");
+                    String diagramPath = getVal(record, "DiagramPath");
+
+                    String requiresImage = getVal(record, "RequiresImage");
+                    if (requiresImage.isEmpty()) requiresImage = getVal(record, "RequiresPic");
+
                     Question question = Question.builder()
                             .questionNumber(qNumber)
                             .questionText(questionText)
+                            .comprehensionText(comprehensionText.isEmpty() ? null : comprehensionText)
+                            .imageUrl(imagePath.isEmpty() ? null : imagePath)
+                            .diagramUrl(diagramPath.isEmpty() ? null : diagramPath)
                             .questionType("MULTIPLE_CHOICE")
                             .difficulty(difficulty.toUpperCase())
                             .explanation(explanation)
@@ -183,8 +201,24 @@ public class CsvImportService {
                     if (!optionD.isEmpty()) options.add(makeOption(optionD, "D".equals(correctOpt) || "OPTIOND".equals(correctOpt), question, 4));
 
                     question.setAnswerOptions(options);
-                    questionRepository.save(question);
+                    Question savedQuestion = questionRepository.save(question);
                     importedCount++;
+
+                    // Track questions needing image upload prompt
+                    if (!imagePath.isEmpty() || !diagramPath.isEmpty() || "YES".equalsIgnoreCase(requiresImage) || "TRUE".equalsIgnoreCase(requiresImage) || "1".equals(requiresImage)) {
+                        Map<String, Object> promptInfo = new HashMap<>();
+                        promptInfo.put("id", savedQuestion.getId());
+                        promptInfo.put("questionNumber", qNumber);
+                        promptInfo.put("questionCode", qCode);
+                        promptInfo.put("questionText", questionText);
+                        promptInfo.put("comprehensionText", comprehensionText);
+                        promptInfo.put("imagePath", imagePath);
+                        promptInfo.put("diagramPath", diagramPath);
+                        promptInfo.put("grade", gradeName);
+                        promptInfo.put("subject", subjectName);
+                        questionsNeedingImage.add(promptInfo);
+                    }
+
                     log.info("[CSV Import] Saved question #{} [{}]: {}", qNumber, qCode, questionText.substring(0, Math.min(40, questionText.length())));
 
                 } catch (Exception ex) {
@@ -196,12 +230,13 @@ public class CsvImportService {
             }
         }
 
-        log.info("[CSV Import] Complete — Imported: {}, Skipped: {}, Errors: {}", importedCount, skippedCount, errors.size());
+        log.info("[CSV Import] Complete — Imported: {}, Skipped: {}, Errors: {}, Needing Image: {}", importedCount, skippedCount, errors.size(), questionsNeedingImage.size());
 
         Map<String, Object> result = new HashMap<>();
         result.put("imported", importedCount);
         result.put("skipped", skippedCount);
         result.put("errors", errors);
+        result.put("questionsNeedingImage", questionsNeedingImage);
         return result;
     }
 

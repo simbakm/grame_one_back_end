@@ -72,6 +72,7 @@ public class SqliteGeneratorService {
                         "id INTEGER PRIMARY KEY, " +
                         "concept_id INTEGER NOT NULL, " +
                         "question_text TEXT NOT NULL, " +
+                        "comprehension_text TEXT, " +
                         "question_type TEXT, " +
                         "difficulty TEXT, " +
                         "explanation TEXT, " +
@@ -142,7 +143,7 @@ public class SqliteGeneratorService {
 
                                             // Export Questions
                                             List<Question> questions = questionRepository.findByConceptId(concept.getId());
-                                            String insertQuestionSql = "INSERT INTO questions (id, concept_id, question_text, question_type, difficulty, explanation, image_url, diagram_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                                            String insertQuestionSql = "INSERT INTO questions (id, concept_id, question_text, comprehension_text, question_type, difficulty, explanation, image_url, diagram_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
                                             try (PreparedStatement qStmt = conn.prepareStatement(insertQuestionSql)) {
                                                 for (Question q : questions) {
                                                     if (!"APPROVED".equalsIgnoreCase(q.getStatus())) continue;
@@ -150,11 +151,12 @@ public class SqliteGeneratorService {
                                                     qStmt.setLong(1, q.getId());
                                                     qStmt.setLong(2, concept.getId());
                                                     qStmt.setString(3, q.getQuestionText());
-                                                    qStmt.setString(4, q.getQuestionType());
-                                                    qStmt.setString(5, q.getDifficulty());
-                                                    qStmt.setString(6, q.getExplanation());
-                                                    qStmt.setString(7, q.getImageUrl());
-                                                    qStmt.setString(8, q.getDiagramUrl());
+                                                    qStmt.setString(4, q.getComprehensionText());
+                                                    qStmt.setString(5, q.getQuestionType());
+                                                    qStmt.setString(6, q.getDifficulty());
+                                                    qStmt.setString(7, q.getExplanation());
+                                                    qStmt.setString(8, q.getImageUrl());
+                                                    qStmt.setString(9, q.getDiagramUrl());
                                                     qStmt.addBatch();
 
                                                     // Export Answer Options
