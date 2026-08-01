@@ -44,9 +44,30 @@ public class LicenseController {
 
     @PostMapping("/validate")
     public ResponseEntity<?> validateLicense(
-            @RequestParam String activationCode,
-            @RequestParam String deviceId) {
-        Map<String, Object> result = licenseService.validateAndActivateLicense(activationCode, deviceId);
+            @RequestBody(required = false) Map<String, Object> body,
+            @RequestParam(required = false) String activationCode,
+            @RequestParam(required = false) String deviceId) {
+
+        String code = activationCode;
+        String device = deviceId;
+
+        if (body != null) {
+            if (body.containsKey("activationCode") && body.get("activationCode") != null) {
+                code = body.get("activationCode").toString();
+            }
+            if (body.containsKey("deviceId") && body.get("deviceId") != null) {
+                device = body.get("deviceId").toString();
+            }
+        }
+
+        if (code == null || code.trim().isEmpty() || device == null || device.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "valid", false,
+                "message", "Both activationCode and deviceId are required."
+            ));
+        }
+
+        Map<String, Object> result = licenseService.validateAndActivateLicense(code.trim(), device.trim());
         return ResponseEntity.ok(result);
     }
 
