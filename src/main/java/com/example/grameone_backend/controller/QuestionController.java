@@ -5,11 +5,15 @@ import com.example.grameone_backend.entity.Concept;
 import com.example.grameone_backend.entity.Question;
 import com.example.grameone_backend.repository.ConceptRepository;
 import com.example.grameone_backend.repository.QuestionRepository;
+import com.example.grameone_backend.service.MediaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/questions")
@@ -18,6 +22,7 @@ public class QuestionController {
 
     private final QuestionRepository questionRepository;
     private final ConceptRepository conceptRepository;
+    private final MediaService mediaService;   // ← properly injected via @RequiredArgsConstructor
 
     @GetMapping
     public List<Question> getQuestions(
@@ -78,26 +83,43 @@ public class QuestionController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Uploads a picture or diagram for a question to Cloudflare R2.
+     * Responds with: { "imageUrl": "...", "diagramUrl": null, "questionId": 27, "success": true }
+     */
     @PostMapping("/{id}/upload-media")
     public ResponseEntity<?> uploadQuestionMedia(
             @PathVariable Long id,
-            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
-            @RequestParam(value = "type", defaultValue = "image") String type,
-            com.example.grameone_backend.service.MediaService mediaService) {
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "type", defaultValue = "image") String type) {
 
         return questionRepository.findById(id)
                 .map(question -> {
                     try {
                         String key = mediaService.uploadMedia(file, "questions");
                         String publicUrl = mediaService.getPublicUrl(key);
+
+                        Map<String, Object> response = new HashMap<>();
                         if ("diagram".equalsIgnoreCase(type)) {
                             question.setDiagramUrl(publicUrl);
+                            response.put("diagramUrl", publicUrl);
+                            response.put("imageUrl", null);
                         } else {
                             question.setImageUrl(publicUrl);
+                            response.put("imageUrl", publicUrl);
+                            response.put("diagramUrl", null);
                         }
-                        return ResponseEntity.ok(questionRepository.save(question));
+
+                        questionRepository.save(question);
+                        response.put("questionId", id);
+                        response.put("success", true);
+
+                        return ResponseEntity.ok(response);
                     } catch (Exception e) {
-                        return ResponseEntity.internalServerError().body("Failed to upload image: " + e.getMessage());
+                        Map<String, Object> err = new HashMap<>();
+                        err.put("success", false);
+                        err.put("error", "Failed to upload image: " + e.getMessage());
+                        return ResponseEntity.internalServerError().body(err);
                     }
                 })
                 .orElse(ResponseEntity.notFound().build());
